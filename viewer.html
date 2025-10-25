@@ -1,0 +1,30 @@
+  <div class="form-container">
+    <h2>3D Print Request Form</h2>
+    <form id="printForm" action="https://formsubmit.co/YOUR_EMAIL_HERE" method="POST">
+      <input type="hidden" name="_subject" value="New 3D Print Request from SuryaRakesh.github.io">
+      <input type="hidden" name="_template" value="table">
+
+      <label>Your Name:</label>
+      <input type="text" name="name" required>
+
+      <label>Email:</label>
+      <input type="email" name="email" required>
+
+      <label>Project Name:</label>
+      <input type="text" name="project" required>
+
+      <label>Estimated Volume (cm³):</label>
+      <input type="number" name="volume" id="volume" value="50">
+
+      <label>Material Cost ($/cm³):</label>
+      <input type="number" name="materialCost" id="materialCost" value="0.05">
+
+      <p id="result"></p>
+
+      <label>Upload your 3D file (.stl / .glb / .gltf):</label>
+      <input type="file" id="fileInput" name="file" accept=".glb,.gltf,.stl" required>
+
+      <button type="button" onclick="calculateCost()">Calculate Cost</button>
+      <button type="submit" class="btn">Submit Request</button>
+    </form>
+  </div>
