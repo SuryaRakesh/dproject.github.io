@@ -1,31 +1,39 @@
-  <div class="form-container">
-    <h2>3D Print Request Form</h2>
-    <form id="printForm" action="https://formsubmit.co/YOUR_EMAIL_HERE" method="POST">
-      <input type="hidden" name="_subject" value="New 3D Print Request from SuryaRakesh.github.io">
-      <input type="hidden" name="_template" value="table">
+<style>
+.hero {
+    text-align: center;
+    padding: 100px 20px;
+    color: #fff;
+    background: linear-gradient(135deg, #1a1a1a 0%, #f37021 100%);
+    animation: fadeUp 1s ease-in-out;
+}
+.hero h1 {
+    font-size: 45px;
+    font-weight: 800;
+}
+.hero p {
+    font-size: 20px;
+    margin-top: 10px;
+}
+.launch-btn {
+    display: inline-block;
+    background: #fff;
+    padding: 14px 28px;
+    border-radius: 50px;
+    font-weight: bold;
+    text-decoration: none;
+    color: #f37021;
+    margin-top: 20px;
+    transition: .3s;
+}
+.launch-btn:hover {
+    background: #ffe0cc;
+    transform: scale(1.08);
+}
+</style>
 
-      <label>Your Name:</label>
-      <input type="text" name="name" required>
-
-      <label>Email:</label>
-      <input type="email" name="email" required>
-
-      <label>Project Name:</label>
-      <input type="text" name="project" required>
-
-      <label>Estimated Volume (cm³):</label>
-      <input type="number" name="volume" id="volume" value="50">
-
-      <label>Material Cost ($/cm³):</label>
-      <input type="number" name="materialCost" id="materialCost" value="0.05">
-
-      <p id="result"></p>
-
-      <label>Upload your 3D file (.stl / .glb / .gltf):</label>
-      <input type="file" id="fileInput" name="file" accept=".glb,.gltf,.stl" required>
-
-      <button type="button" onclick="calculateCost()">Calculate Cost</button>
-      <button type="submit" class="btn">Submit Request</button>
-    </form>
-  </div>
-
+<div class="hero">
+    <img src="https://upload.wikimedia.org/wikipedia/en/thumb/5/51/REVA_University_logo.png/200px-REVA_University_logo.png" height="90">
+    <h1>3D Print Hub ✨</h1>
+    <p>Upload • Preview • Calculate Cost Instantly</p>
+    <a class="launch-btn" href="viewer.html">🚀 Launch Viewer</a>
+</div>
