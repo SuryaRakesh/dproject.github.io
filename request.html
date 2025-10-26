@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Request 3D Print | Reva University</title>
+<link rel="icon" href="data:,">
+<style>
+:root{ --reva-orange:#f37021; --reva-dark:#1a1a1a; --reva-light:#fff; --muted:#6b7280 }
+*{box-sizing:border-box}
+body { margin:0; font-family: Inter, "Segoe UI", Arial; background:#f3f4f6; color:var(--reva-dark); padding:28px }
+.container{ max-width:1100px; margin:0 auto; display:grid; grid-template-columns: 1fr 420px; gap:20px; align-items:start }
+.header{ grid-column:1/-1; display:flex; align-items:center; gap:18px; margin-bottom:6px }
+.logo{ height:60px }
+.title{ font-size:22px; font-weight:800 }
+.subtitle{ color:var(--muted); font-size:13px }
+
+.card{ background:#fff; border-radius:14px; padding:18px; box-shadow:0 8px 30px rgba(20,20,20,0.06) }
+
+/* left area - viewer and stepper */
+.viewer-wrap{ height:520px; display:flex; flex-direction:column; gap:12px }
+.canvas-card{ flex:1; border-radius:10px; overflow:hidden; position:relative }
+#three-canvas{ width:100%; height:100%; display:block; background:linear-gradient(180deg,#eef2f7,#f8fafc) }
+.controls-row{ display:flex; gap:10px; margin-top:10px; align-items:center }
+.input, input[type="number"], select{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid #e3e7ed; font-size:14px }
+.row { display:flex; gap:12px }
+.col { flex:1 }
+
+/* stepper */
+.stepper{ display:flex; gap:8px; align-items:center; margin-bottom:12px }
+.step{
+  padding:8px 12px; border-radius:999px; font-weight:700; font-size:13px; background:#f2f4f7; color:var(--muted);
+  transition: all .18s; display:flex; gap:8px; align-items:center;
+}
+.step.active{ background: linear-gradient(90deg,var(--reva-orange), #ff9b4d); color:white; box-shadow:0 10px 26px rgba(243,112,33,0.12) transform:translateY(-2px) }
+
+/* right column (summary) */
+.summary { position:sticky; top:28px; display:flex; flex-direction:column; gap:12px }
+.summary .card{ padding:16px }
+.summary h3{ margin:0 0 8px 0 }
+.kv{ display:flex; justify-content:space-between; margin:8px 0; font-weight:600 }
+.kv small{ font-weight:400; color:var(--muted) }
+.buttons{ display:flex; gap:10px; margin-top:10px; }
+.btn{ border:none; background:var(--reva-orange); color:white; padding:11px 14px; border-radius:10px; font-weight:700; cursor:pointer; transition:transform .12s }
+.btn.secondary{ background:#fff; color:var(--reva-dark); border:1px solid #eee }
+.btn:hover{ transform:translateY(-3px) }
+
+/* status chip */
+.chip{ padding:6px 10px; border-radius:999px; font-weight:700; font-size:13px; display:inline-block }
+.chip.pending{ background:#fff6ec; color:#b85b01; border:1px solid #ffead1 }
+.chip.printing{ background:#e8f8ff; color:#146a9a }
+.chip.done{ background:#edfff4; color:#0a8a3c }
+
+/* small helpers */
+.note{ font-size:13px; color:var(--muted) }
+footer{ grid-column:1/-1; margin-top:18px; text-align:center; color:#7a7a7a }
+@media (max-width:980px){
+  .container{ grid-template-columns: 1fr; padding:16px }
+  .summary{ position:static }
+  .viewer-wrap{ height:auto }
+  #three-canvas{ height:420px }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <img class="logo" src="https://upload.wikimedia.org/wikipedia/en/thumb/5/51/REVA_University_logo.png/200px-REVA_University_logo.png" alt="Reva">
+    <div>
+      <div class="title">3D Print Request</div>
+      <div class="subtitle">Upload your .stl / .glb / .gltf — preview and get instant estimates</div>
+    </div>
+  </div>
+
+  <!-- LEFT: Viewer + inputs -->
+  <div class="card viewer-wrap">
+    <div class="stepper" id="stepper">
+      <div class="step active" data-step="1">1 • Upload</div>
+      <div class="step" data-step="2">2 • Preview</div>
+      <div class="step" data-step="3">3 • Estimate</div>
+      <div class="step" data-step="4">4 • Submit</div>
+    </div>
+
+    <div class="canvas-card card" style="padding:0;">
+      <canvas id="three-canvas"></canvas>
+      <!-- overlay controls -->
+      <div style="position:absolute; left:12px; top:12px;">
+        <div class="chip pending" id="statusChip">No model loaded</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:10px">
+      <div>
+        <label class="note">Choose 3D file (.stl / .glb / .gltf)</label>
+        <input id="fileInput" type="file" accept=".stl,.glb,.gltf" class="input">
+      </div>
+      <div>
+        <label class="note">Preview mode</label>
+        <select id="presetView" class="input">
+          <option value="fit">Fit / Center</option>
+          <option value="front">Front</option>
+          <option value="iso">Isometric</option>
+          <option value="top">Top</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="col">
+        <label class="note">Estimated Volume (cm³)</label>
+        <input id="volumeInput" type="number" class="input" placeholder="e.g. 50" min="0" value="50">
+      </div>
+      <div class="col">
+        <label class="note">Material Cost (₹/cm³)</label>
+        <input id="materialCost" type="number" class="input" step="0.01" value="0.05">
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div class="col">
+        <label class="note">Printing rate (cm³ / hour)</label>
+        <input id="printRate" type="number" class="input" value="12">
+      </div>
+      <div class="col">
+        <label class="note">Labor hourly rate (₹ / hour)</label>
+        <input id="laborRate" type="number" class="input" value="30">
+      </div>
+    </div>
+
+    <div class="controls-row" style="margin-top:12px">
+      <button class="btn" id="calcBtn">Calculate Estimate</button>
+      <button class="btn secondary" id="resetBtn">Reset</button>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Summary / cost card -->
+  <div class="summary">
+    <div class="card">
+      <h3>Cost Breakdown</h3>
+      <div class="kv"><span>Material cost</span><span id="materialCostVal">₹0.00</span></div>
+      <div class="kv"><span>Filament length</span><small id="filamentLen">—</small></div>
+      <div class="kv"><span>Estimated print time</span><small id="printTime">—</small></div>
+      <div class="kv"><span>Labor cost</span><small id="laborCost">—</small></div>
+      <hr>
+      <div class="kv" style="font-size:18px"><span>Total</span><strong id="totalCost">₹0.00</strong></div>
+      <div class="note" style="margin-top:8px">Adjust volume or rates, then click <strong>Calculate Estimate</strong>. Values are approximations.</div>
+    </div>
+
+    <div class="card">
+      <h3>Project Info</h3>
+      <label class="note">Your name</label>
+      <input id="name" class="input" placeholder="Student name">
+
+      <label class="note" style="margin-top:8px">Email</label>
+      <input id="email" class="input" placeholder="you@reva.edu.in">
+
+      <label class="note" style="margin-top:8px">Project Name</label>
+      <input id="projectName" class="input" placeholder="e.g. Drone mount">
+
+      <div class="buttons" style="margin-top:12px">
+        <button class="btn" id="submitBtn">Submit Request</button>
+        <button class="btn secondary" id="toDashboard">Go to Dashboard</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Quick Tips</h3>
+      <ul style="margin:6px 0 0 18px; color:var(--muted)">
+        <li>Use .glb/.gltf to preserve colors / textures.</li>
+        <li>If STL has no volume info, enter estimated volume manually.</li>
+        <li>Filament assumptions: 1.75mm diameter, PLA density ≈ 1.24 g/cm³.</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>Powered by Reva 3D Print Hub • Demo UI • No backend required</footer>
+</div>
+
+<!-- three.js + loaders from unpkg -->
+<script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.152.2/examples/js/loaders/STLLoader.js"></script>
+<script src="https://unpkg.com/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+
+<script>
+/* -------------------------
+  3D viewer initialization
+-------------------------*/
+let scene, camera, renderer, controls, currentMesh, grid;
+const canvas = document.getElementById('three-canvas');
+
+function initThree() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf6f8fb);
+
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 2000);
+  camera.position.set(180,150,180);
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+
+  // lights
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
+  scene.add(hemi);
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+  dir.position.set(200,400,300);
+  scene.add(dir);
+
+  // ground/grid
+  grid = new THREE.GridHelper(300, 30, 0xdddddd, 0xeeeeee);
+  scene.add(grid);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.07;
+  controls.autoRotate = false;
+
+  window.addEventListener('resize', onResize);
+  animate();
+}
+
+function onResize(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w,h,false);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+initThree();
+
+/* -------------------------
+  Loading models
+-------------------------*/
+const fileInput = document.getElementById('fileInput');
+const statusChip = document.getElementById('statusChip');
+const presetView = document.getElementById('presetView');
+
+fileInput.addEventListener('change', (ev) => {
+  const f = ev.target.files[0];
+  if(!f) return;
+  const ext = f.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+  statusChip.textContent = 'Loading model...';
+  statusChip.className = 'chip printing';
+  reader.addEventListener('load', (e) => {
+    const contents = e.target.result;
+    if(ext === 'stl'){
+      const loader = new THREE.STLLoader();
+      const geom = loader.parse(contents instanceof ArrayBuffer ? contents : new Uint8Array(contents));
+      const mat = new THREE.MeshStandardMaterial({ color: 0x9aa8ff, metalness:0.05, roughness:0.6 });
+      const mesh = new THREE.Mesh(geom, mat);
+      addModelToScene(mesh);
+    } else if(ext === 'glb' || ext === 'gltf'){
+      const loader = new THREE.GLTFLoader();
+      loader.parse(contents, '', function(gltf){
+        const group = gltf.scene || gltf.scenes[0];
+        addModelToScene(group);
+      }, function(err){ console.error(err); statusChip.textContent='Load error'; statusChip.className='chip pending' });
+    } else {
+      alert('Unsupported file type: ' + ext);
+      statusChip.textContent = 'Unsupported';
+      statusChip.className='chip pending';
+    }
+  });
+
+  // read as arrayBuffer for STL/GLB
+  if(f.name.toLowerCase().endsWith('.stl') || f.name.toLowerCase().endsWith('.glb') || f.name.toLowerCase().endsWith('.gltf')){
+    reader.readAsArrayBuffer(f);
+  } else {
+    reader.readAsText(f);
+  }
+});
+
+function addModelToScene(obj){
+  // clear previous
+  if(currentMesh) scene.remove(currentMesh);
+  // ensure a group
+  const group = new THREE.Group();
+  group.add(obj);
+  // compute bounding box and center
+  const bbox = new THREE.Box3().setFromObject(group);
+  const size = bbox.getSize(new THREE.Vector3());
+  const center = bbox.getCenter(new THREE.Vector3());
+  group.position.x += (group.position.x - center.x);
+  group.position.y += (group.position.y - center.y);
+  group.position.z += (group.position.z - center.z);
+
+  // add a simple material override if mesh
+  group.traverse(node => {
+    if(node.isMesh){
+      node.castShadow = true;
+      node.receiveShadow = true;
+      if(!node.material) node.material = new THREE.MeshStandardMaterial({color:0x9aa8ff});
+    }
+  });
+
+  currentMesh = group;
+  scene.add(group);
+  fitCameraToObject(group);
+  statusChip.textContent = 'Model loaded';
+  statusChip.className = 'chip printing';
+  // mark steps
+  setStep(2);
+}
+
+/* simple fit camera */
+function fitCameraToObject(object, offset = 1.4) {
+  const boundingBox = new THREE.Box3();
+  boundingBox.setFromObject(object);
+  const center = boundingBox.getCenter(new THREE.Vector3());
+  const size = boundingBox.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const fov = camera.fov * (Math.PI/180);
+  let cameraZ = Math.abs(maxDim / 2 * Math.tan(fov * 2)) * offset;
+  cameraZ = Math.max(cameraZ, 50);
+  camera.position.set(center.x + cameraZ, center.y + cameraZ, center.z + cameraZ);
+  camera.lookAt(center);
+  controls.target.copy(center);
+  controls.update();
+}
+
+/* preset view changes */
+presetView.addEventListener('change', () => {
+  if(!currentMesh) return;
+  const center = new THREE.Box3().setFromObject(currentMesh).getCenter(new THREE.Vector3());
+  const distance = 200;
+  const v = presetView.value;
+  if(v==='front') camera.position.set(center.x, center.y, center.z + distance);
+  if(v==='iso') camera.position.set(center.x + distance, center.y + distance, center.z + distance);
+  if(v==='top') camera.position.set(center.x, center.y + distance, center.z);
+  if(v==='fit') fitCameraToObject(currentMesh, 1.2);
+  camera.lookAt(center);
+  controls.update();
+});
+
+/* -------------------------
+  Estimation calculations
+-------------------------*/
+function calcEstimates(){
+  // read inputs
+  let vol = parseFloat(document.getElementById('volumeInput').value) || 0; // cm3
+  const materialRate = parseFloat(document.getElementById('materialCost').value) || 0;
+  const rate = parseFloat(document.getElementById('printRate').value) || 12; // cm3/hr
+  const laborRate = parseFloat(document.getElementById('laborRate').value) || 30;
+
+  // Constants for filament length:
+  // filament dia = 1.75 mm => area mm2 = pi*(d^2)/4
+  const filamentDia = 1.75; // mm
+  const area_mm2 = Math.PI * Math.pow(filamentDia,2) / 4.0; // mm^2
+
+  // convert volume cm3 -> mm^3
+  const vol_mm3 = vol * 1000; // 1 cm3 = 1000 mm3
+
+  // filament length in meters = vol_mm3 / area_mm2 / 1000
+  const filament_len_m = vol_mm3 / area_mm2 / 1000.0;
+
+  // material mass (approx): PLA density ~ 1.24 g/cm3 => mass g = vol * density (g/cm3)
+  const density = 1.24; // g/cm3
+  const mass_g = vol * density;
+
+  // time hours = vol / rate
+  const hours = vol / rate;
+  const labor_cost = hours * laborRate;
+
+  // material cost
+  const material_cost = vol * materialRate;
+
+  // total cost
+  const total = material_cost + labor_cost;
+
+  // write to UI
+  document.getElementById('materialCostVal').textContent = '₹' + material_cost.toFixed(2);
+  document.getElementById('filamentLen').textContent = filament_len_m.toFixed(2) + ' m • ' + mass_g.toFixed(1) + ' g';
+  document.getElementById('printTime').textContent = hours.toFixed(2) + ' hrs';
+  document.getElementById('laborCost').textContent = '₹' + labor_cost.toFixed(2);
+  document.getElementById('totalCost').textContent = '₹' + total.toFixed(2);
+
+  // update stepper
+  setStep(3);
+  // update status chip
+  statusChip.textContent = 'Estimate ready';
+  statusChip.className = 'chip pending';
+  return { material_cost, filament_len_m, mass_g, hours, labor_cost, total };
+}
+
+document.getElementById('calcBtn').addEventListener('click', () => {
+  calcEstimates();
+});
+
+/* reset */
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(currentMesh){ scene.remove(currentMesh); currentMesh=null; }
+  fileInput.value='';
+  document.getElementById('volumeInput').value = 50;
+  document.getElementById('materialCost').value = 0.05;
+  document.getElementById('printRate').value = 12;
+  document.getElementById('laborRate').value = 30;
+  document.getElementById('materialCostVal').textContent='₹0.00';
+  document.getElementById('filamentLen').textContent='—';
+  document.getElementById('printTime').textContent='—';
+  document.getElementById('laborCost').textContent='—';
+  document.getElementById('totalCost').textContent='₹0.00';
+  statusChip.textContent='No model loaded';
+  statusChip.className='chip pending';
+  setStep(1);
+});
+
+/* -------------------------
+  Stepper helper
+-------------------------*/
+function setStep(n){
+  const steps = document.querySelectorAll('.step');
+  steps.forEach(s => {
+    s.classList.remove('active');
+    if(parseInt(s.dataset.step) === n) s.classList.add('active');
+  });
+}
+
+/* -------------------------
+  Submit & Dashboard localStorage
+-------------------------*/
+document.getElementById('submitBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('name').value || 'Anonymous';
+  const email = document.getElementById('email').value || '';
+  const projectName = document.getElementById('projectName').value || 'Untitled';
+  if(!currentMesh && !fileInput.files.length){
+    alert('Please upload a 3D file before submitting.');
+    return;
+  }
+  // compute estimates again
+  const est = calcEstimates();
+  const entry = {
+    id: 'REQ-' + Date.now(),
+    name, email, projectName,
+    volume_cm3: parseFloat(document.getElementById('volumeInput').value) || 0,
+    material_rate: parseFloat(document.getElementById('materialCost').value) || 0,
+    laborRate: parseFloat(document.getElementById('laborRate').value) || 0,
+    printRate: parseFloat(document.getElementById('printRate').value) || 12,
+    filament_m: est.filament_len_m,
+    mass_g: est.mass_g,
+    hours: est.hours,
+    material_cost: est.material_cost,
+    labor_cost: est.labor_cost,
+    total_cost: est.total,
+    status: 'Pending',
+    createdAt: new Date().toISOString(),
+    filename: fileInput.files[0] ? fileInput.files[0].name : 'uploaded-model'
+  };
+
+  // Save to localStorage (array 'reva_print_requests')
+  const key = 'reva_print_requests';
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  list.unshift(entry);
+  localStorage.setItem(key, JSON.stringify(list));
+
+  // animate small success
+  statusChip.textContent = 'Submitted';
+  statusChip.className = 'chip pending';
+  setStep(4);
+
+  // redirect to dashboard
+  setTimeout(()=> location.href = 'dashboard.html', 700);
+});
+
+document.getElementById('toDashboard').addEventListener('click', ()=> location.href = 'dashboard.html');
+
+</script>
+</body>
+</html>
+
