@@ -1,39 +1,58 @@
-<style>
-.hero {
-    text-align: center;
-    padding: 100px 20px;
-    color: #fff;
-    background: linear-gradient(135deg, #1a1a1a 0%, #f37021 100%);
-    animation: fadeUp 1s ease-in-out;
-}
-.hero h1 {
-    font-size: 45px;
-    font-weight: 800;
-}
-.hero p {
-    font-size: 20px;
-    margin-top: 10px;
-}
-.launch-btn {
-    display: inline-block;
-    background: #fff;
-    padding: 14px 28px;
-    border-radius: 50px;
-    font-weight: bold;
-    text-decoration: none;
-    color: #f37021;
-    margin-top: 20px;
-    transition: .3s;
-}
-.launch-btn:hover {
-    background: #ffe0cc;
-    transform: scale(1.08);
-}
-</style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Model Volume Calculator</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/STLLoader.js"></script>
+</head>
+<body>
+<h2>Upload STL file:</h2>
+<input type="file" id="stlFile" accept=".stl">
+<p id="volume"></p>
+<p id="material"></p>
+<p id="time"></p>
+<p id="electricity"></p>
+<p id="total"></p>
 
-<div class="hero">
-    <img src="https://upload.wikimedia.org/wikipedia/en/thumb/5/51/REVA_University_logo.png/200px-REVA_University_logo.png" height="90">
-    <h1>3D Print Hub ✨</h1>
-    <p>Upload • Preview • Calculate Cost Instantly</p>
-    <a class="launch-btn" href="viewer.html">🚀 Launch Viewer</a>
-</div>
+<script>
+function computeVolume(geometry) {
+    const pos = geometry.attributes.position.array;
+    let volume = 0;
+    for (let i = 0; i < pos.length; i += 9) {
+        const ax = pos[i], ay = pos[i+1], az = pos[i+2];
+        const bx = pos[i+3], by = pos[i+4], bz = pos[i+5];
+        const cx = pos[i+6], cy = pos[i+7], cz = pos[i+8];
+        volume += (ax*(by*cz - bz*cy) - ay*(bx*cz - bz*cx) + az*(bx*cy - by*cx)) / 6;
+    }
+    return Math.abs(volume);
+}
+
+document.getElementById('stlFile').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        const loader = new THREE.STLLoader();
+        const geometry = loader.parse(arrayBuffer);
+
+        const volume = computeVolume(geometry);
+        const materialCost = volume * 2.5;
+        const printTime = volume * 0.3; // minutes
+        const electricityCost = printTime * 0.5;
+        const totalCost = materialCost + electricityCost;
+
+        document.getElementById('volume').innerText = `Volume: ${volume.toFixed(2)} units³`;
+        document.getElementById('material').innerText = `Material Cost: ₹${materialCost.toFixed(2)}`;
+        document.getElementById('time').innerText = `Print Time: ${printTime.toFixed(2)} min`;
+        document.getElementById('electricity').innerText = `Electricity Cost: ₹${electricityCost.toFixed(2)}`;
+        document.getElementById('total').innerText = `Total Cost: ₹${totalCost.toFixed(2)}`;
+    };
+    reader.readAsArrayBuffer(file);
+});
+</script>
+</body>
+</html>
