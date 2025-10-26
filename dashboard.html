@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dashboard | Reva 3D Print Hub</title>
+<style>
+:root{ --reva-orange:#f37021; --muted:#6b7280 }
+body{font-family:Inter, "Segoe UI", Arial; margin:0; background:#f3f4f6; color:#111}
+.header{ background:#fff; padding:18px; display:flex; align-items:center; gap:12px; box-shadow:0 6px 20px rgba(0,0,0,0.04) }
+.logo{ height:54px }
+.container{ max-width:1100px; margin:20px auto; padding:0 14px }
+.card{ background:#fff; border-radius:12px; padding:14px; box-shadow:0 8px 30px rgba(0,0,0,0.04); margin-bottom:12px }
+.toolbar{ display:flex; gap:12px; align-items:center; margin-bottom:12px }
+.btn{ padding:8px 12px; border-radius:10px; border:none; background:var(--reva-orange); color:#fff; font-weight:700; cursor:pointer }
+.small{ color:var(--muted); font-size:13px }
+.table{ width:100%; border-collapse:collapse; font-size:14px }
+.table th, .table td{ padding:10px 12px; text-align:left; border-bottom:1px solid #f0f0f0 }
+.badge{ padding:6px 10px; border-radius:999px; font-weight:700; font-size:13px }
+.badge.pending{ background:#fff6ec; color:#b85b01 }
+.badge.printing{ background:#e8f8ff; color:#146a9a }
+.badge.done{ background:#edfff4; color:#0a8a3c }
+.actions button{ margin-right:6px; padding:6px 8px; border-radius:8px; border:1px solid #eee; background:#fff; cursor:pointer }
+.empty{ text-align:center; padding:30px; color:var(--muted) }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <img class="logo" src="https://upload.wikimedia.org/wikipedia/en/thumb/5/51/REVA_University_logo.png/200px-REVA_University_logo.png" alt="Reva">
+  <div>
+    <div style="font-weight:800; font-size:18px">3D Print Hub — Dashboard</div>
+    <div class="small">Track submitted prints • Update statuses • Export (client-side)</div>
+  </div>
+  <div style="margin-left:auto;">
+    <button class="btn" onclick="location.href='request.html'">New Request</button>
+  </div>
+</header>
+
+<main class="container">
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <strong>Requests</strong>
+        <div class="small">All submissions are saved locally in your browser (localStorage).</div>
+      </div>
+      <div>
+        <button class="btn" id="clearAll">Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="listArea"></div>
+
+  <div class="card" style="text-align:center; color:var(--muted); font-size:13px;">
+    This is a front-end demo. In production, store requests securely on a server and connect to Reva systems.
+  </div>
+</main>
+
+<script>
+const key = 'reva_print_requests';
+function loadList(){
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  const area = document.getElementById('listArea');
+  area.innerHTML = '';
+  if(!list.length){
+    area.innerHTML = '<div class="card empty">No requests yet. Click <strong>New Request</strong> to start.</div>';
+    return;
+  }
+
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'card';
+  let html = '<table class="table"><thead><tr><th>ID</th><th>Project</th><th>Requester</th><th>Volume</th><th>Total</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>';
+  list.forEach((it, idx) => {
+    html += `<tr>
+      <td>${it.id}</td>
+      <td>${it.projectName} <div style="color:#666; font-size:12px">${it.filename}</div></td>
+      <td>${it.name}<div style="font-size:12px;color:#777">${it.email}</div></td>
+      <td>${(it.volume_cm3||0).toFixed(2)} cm³</td>
+      <td>₹${(it.total_cost||0).toFixed(2)}</td>
+      <td><span class="badge ${it.status.toLowerCase()}">${it.status}</span></td>
+      <td>${new Date(it.createdAt).toLocaleString()}</td>
+      <td class="actions">
+        <button onclick="setStatus('${it.id}','Pending')">Pending</button>
+        <button onclick="setStatus('${it.id}','Printing')">Printing</button>
+        <button onclick="setStatus('${it.id}','Done')">Done</button>
+        <button onclick="removeItem('${it.id}')">Delete</button>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  tableWrap.innerHTML = html;
+  area.appendChild(tableWrap);
+}
+
+function setStatus(id, status){
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  const idx = list.findIndex(x=>x.id===id);
+  if(idx>=0){ list[idx].status = status; localStorage.setItem(key, JSON.stringify(list)); loadList(); }
+}
+
+function removeItem(id){
+  if(!confirm('Delete this request?')) return;
+  let list = JSON.parse(localStorage.getItem(key) || '[]');
+  list = list.filter(x=>x.id !== id);
+  localStorage.setItem(key, JSON.stringify(list));
+  loadList();
+}
+
+document.getElementById('clearAll').addEventListener('click', ()=>{
+  if(confirm('Clear all saved requests? This cannot be undone.')){
+    localStorage.removeItem(key);
+    loadList();
+  }
+});
+
+loadList();
+</script>
+</body>
+</html>
